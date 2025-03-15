@@ -1,25 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <time.h>
-#include <float.h> // Para DBL_MAX
+#include "hub_problem.h"
 
-#define MAX_NODES 200
-#define MAX_HUBS 50
-#define INFINITY DBL_MAX // Usar DBL_MAX para infinito
-
-typedef struct {
-    double x, y;
-} Node;
-
-typedef struct {
-    int hubs[MAX_HUBS];
-    int hub_count;
-    double objective_function;
-    int allocation[MAX_NODES];
-} Solution;
-
+// Definição das variáveis globais
 Node nodes[MAX_NODES];
 int n, p;
 double beta = 1.0, alpha = 0.75, lambda = 1.0;
@@ -27,7 +8,7 @@ double distance_matrix[MAX_NODES][MAX_NODES];
 double vetor_hub[MAX_HUBS];
 double vetor_nao_hub[MAX_NODES];
 
-// Funções básicas
+// Implementação das funções
 double calculate_distance(Node a, Node b) {
     return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
 }
@@ -45,7 +26,6 @@ void calculate_distance_matrix() {
     }
 }
 
-// Leitura de instância com parâmetros
 void read_instance(const char *filename, int hub_count) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -61,7 +41,6 @@ void read_instance(const char *filename, int hub_count) {
     calculate_distance_matrix();
 }
 
-// Funções de solução
 void initialize_solution(Solution *sol) {
     sol->hub_count = p;
     sol->objective_function = 0;
@@ -75,7 +54,6 @@ void clone_solution(Solution *original, Solution *clone) {
     clone->objective_function = original->objective_function;
 }
 
-// Método para ler uma solução de um arquivo
 int read_solution(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -118,7 +96,6 @@ int read_solution(const char *filename, Solution *sol) {
     return 1; // Sucesso
 }
 
-// Heurística construtiva (sem semente aleatória para inst200)
 void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
     int available_hubs[MAX_NODES];
     for (int i = 0; i < n; i++) available_hubs[i] = i;
@@ -197,7 +174,6 @@ double menor_ponto_hub(Solution *sol) {
     return t;
 }
 
-// Cálculo da FO com temporização
 double compute_objective(Solution *sol) {
     double max_cost = 0;
     for (int i = 0; i < n; i++) {
@@ -214,7 +190,6 @@ double compute_objective(Solution *sol) {
     return max_cost;
 }
 
-// Salvar solução em arquivo com detalhes
 void save_solution_details(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "w");
     if (!file) {
@@ -243,7 +218,6 @@ void save_solution_details(const char *filename, Solution *sol) {
     fclose(file);
 }
 
-// Exibir solução na tela
 void display_solution(Solution *sol) {
     printf("\n--- Solucao ---\n");
     printf("n: %d\tp: %d\n", n, p);
@@ -266,7 +240,6 @@ void display_solution(Solution *sol) {
     }
 }
 
-// Rotina de testes e métricas
 void run_benchmark(const char *filename, int hub_count, int iterations) {
     // Configuração inicial
     read_instance(filename, hub_count);
