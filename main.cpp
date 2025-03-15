@@ -100,10 +100,10 @@ int read_solution(const char *filename, Solution *sol) {
 
     // Lê as alocações (OR, H1, H2, DS, CUSTO)
     while (fgets(line, sizeof(line), file)) {
-        int or, h1, h2, ds;
+        int ori, h1, h2, ds;
         double custo;
-        if (sscanf(line, "%d\t%d\t%d\t%d\t%lf", &or, &h1, &h2, &ds, &custo) == 5) {
-            sol->allocation[or] = h1; // Assumindo que H1 é o hub alocado para o nó OR
+        if (sscanf(line, "%d\t%d\t%d\t%d\t%lf", &ori, &h1, &h2, &ds, &custo) == 5) {
+            sol->allocation[ori] = h1; // Assumindo que H1 é o hub alocado para o nó OR
         }
     }
 
