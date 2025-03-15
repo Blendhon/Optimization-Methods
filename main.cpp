@@ -74,6 +74,43 @@ void clone_solution(Solution *original, Solution *clone) {
     clone->objective_function = original->objective_function;
 }
 
+// Método para ler uma solução de um arquivo
+int read_solution(const char *filename, Solution *sol) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Erro ao abrir o arquivo de solução");
+        return 0; // Falha ao abrir o arquivo
+    }
+
+    // Lê n e p
+    fscanf(file, "n: %d\tp: %d\n", &n, &p);
+
+    // Lê a FO
+    fscanf(file, "FO: %lf\n", &sol->objective_function);
+
+    // Lê os hubs
+    char line[256];
+    fgets(line, sizeof(line), file); // Lê a linha "HUBS: [...]"
+    char *token = strtok(line, " [],"); // Divide a linha em tokens
+    sol->hub_count = 0;
+    while (token != NULL) {
+        sol->hubs[sol->hub_count++] = atoi(token);
+        token = strtok(NULL, " [],");
+    }
+
+    // Lê as alocações (OR, H1, H2, DS, CUSTO)
+    while (fgets(line, sizeof(line), file)) {
+        int or, h1, h2, ds;
+        double custo;
+        if (sscanf(line, "%d\t%d\t%d\t%d\t%lf", &or, &h1, &h2, &ds, &custo) == 5) {
+            sol->allocation[or] = h1; // Assumindo que H1 é o hub alocado para o nó OR
+        }
+    }
+
+    fclose(file);
+    return 1; // Sucesso
+}
+
 // Heurística construtiva (sem semente aleatória para inst200)
 void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
     int available_hubs[MAX_NODES];
