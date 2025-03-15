@@ -1,0 +1,52 @@
+#ifndef HUB_PROBLEM_H
+#define HUB_PROBLEM_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <time.h>
+#include <float.h> // Para DBL_MAX
+
+// Constantes
+#define MAX_NODES 200
+#define MAX_HUBS 50
+#define INFINITY DBL_MAX
+
+// Estruturas
+typedef struct {
+    double x, y;
+} Node;
+
+typedef struct {
+    int hubs[MAX_HUBS];
+    int hub_count;
+    double objective_function;
+    int allocation[MAX_NODES];
+} Solution;
+
+// Variáveis globais
+extern Node nodes[MAX_NODES];
+extern int n, p;
+extern double beta, alpha, lambda;
+extern double distance_matrix[MAX_NODES][MAX_NODES];
+extern double vetor_hub[MAX_HUBS];
+extern double vetor_nao_hub[MAX_NODES];
+
+// Protótipos das funções
+double calculate_distance(Node a, Node b);
+void calculate_distance_matrix();
+void read_instance(const char *filename, int hub_count);
+void initialize_solution(Solution *sol);
+void clone_solution(Solution *original, Solution *clone);
+int read_solution(const char *filename, Solution *sol);
+void heu_cons_ale_gul(Solution *sol, int use_random_seed);
+double menor_hub_final(int hub, Solution *sol);
+double menor_hub_hub(int hub, Solution *sol);
+double menor_ponto_hub(Solution *sol);
+double compute_objective(Solution *sol);
+void save_solution_details(const char *filename, Solution *sol);
+void display_solution(Solution *sol);
+void run_benchmark(const char *filename, int hub_count, int iterations);
+
+#endif // HUB_PROBLEM_H
