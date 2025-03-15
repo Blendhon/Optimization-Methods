@@ -314,14 +314,27 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("Uso: %s <arquivo_instancia> <num_hubs>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+    // Definir valores padrão
+    const char *default_instance = "inst200.txt";
+    int default_hub_count = 4; // Exemplo de valor padrão para o número de hubs
+
+    // Verificar se os parâmetros foram fornecidos
+    const char *instance_file = (argc > 1) ? argv[1] : default_instance;
+    int hub_count = (argc > 2) ? atoi(argv[2]) : default_hub_count;
 
     // Definir a semente do gerador de números aleatórios
     srand(time(NULL));
 
-    run_benchmark(argv[1], atoi(argv[2]), 1000);
+    // Exemplo de uso do método read_solution
+    Solution sol;
+    if (read_solution("solucao_salva.txt", &sol)) {
+        printf("Solução carregada com sucesso!\n");
+        display_solution(&sol);
+    } else {
+        printf("Falha ao carregar a solução.\n");
+    }
+
+    // Executar o benchmark
+    run_benchmark(instance_file, hub_count, 1000);
     return EXIT_SUCCESS;
 }
