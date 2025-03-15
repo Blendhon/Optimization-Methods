@@ -17,8 +17,6 @@ typedef struct {
     int hub_count;
     double objective_function;
     int allocation[MAX_NODES];
-    clock_t start_time;
-    clock_t end_time;
 } Solution;
 
 Node nodes[MAX_NODES];
