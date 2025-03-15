@@ -3,10 +3,11 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <float.h> // Para DBL_MAX
 
 #define MAX_NODES 200
 #define MAX_HUBS 50
-#define INFINITY 1e9
+#define INFINITY DBL_MAX // Usar DBL_MAX para infinito
 
 typedef struct {
     double x, y;
@@ -83,10 +84,16 @@ int read_solution(const char *filename, Solution *sol) {
     }
 
     // Lê n e p
-    fscanf(file, "n: %d\tp: %d\n", &n, &p);
+    if (fscanf(file, "n: %d\tp: %d\n", &n, &p) != 2) {
+        fclose(file);
+        return 0; // Formato inválido
+    }
 
     // Lê a FO
-    fscanf(file, "FO: %lf\n", &sol->objective_function);
+    if (fscanf(file, "FO: %lf\n", &sol->objective_function) != 1) {
+        fclose(file);
+        return 0; // Formato inválido
+    }
 
     // Lê os hubs
     char line[256];
