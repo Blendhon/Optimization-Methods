@@ -63,25 +63,17 @@ void read_instance(const char *filename, int hub_count) {
 }
 
 // Funções de solução
-Solution* create_solution() {
-    Solution *sol = (Solution*)malloc(sizeof(Solution));
-    if (!sol) {
-        perror("Erro ao alocar memória para solução");
-        exit(EXIT_FAILURE);
-    }
+void initialize_solution(Solution *sol) {
     sol->hub_count = p;
     sol->objective_function = 0;
     memset(sol->hubs, -1, sizeof(sol->hubs));  // Inicializa hubs com valores inválidos
     memset(sol->allocation, -1, sizeof(sol->allocation));  // Inicializa alocações
-    return sol;
 }
 
-Solution* clone_solution(Solution *original) {
-    Solution *clone = create_solution();
+void clone_solution(Solution *original, Solution *clone) {
     memcpy(clone->hubs, original->hubs, sizeof(original->hubs));
     memcpy(clone->allocation, original->allocation, sizeof(original->allocation));
     clone->objective_function = original->objective_function;
-    return clone;
 }
 
 // Heurística construtiva (sem semente aleatória para inst200)
@@ -98,10 +90,6 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
         int pos = (use_random_seed) ? rand() % (n - i) : 0;
         sol->hubs[i] = available_hubs[pos];
         available_hubs[pos] = available_hubs[n - i - 1];
-        /*sol->hubs[0] = 3;
-        sol->hubs[1] = 5;
-        sol->hubs[2] = 13;
-        sol->hubs[3] = 16;*/
     }
 
     // Alocação
@@ -147,7 +135,7 @@ double menor_hub_hub(int hub, Solution *sol) {
         }
     }
 
-    return menor_hub_hub*0.75 + menor_hub_final(hub_temp, sol);
+    return menor_hub_hub * 0.75 + menor_hub_final(hub_temp, sol);
 }
 
 double menor_ponto_hub(Solution *sol) {
@@ -246,15 +234,16 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
     read_instance(filename, hub_count);
     
     // Modo de execução única
-    Solution *initial_sol = create_solution();
+    Solution initial_sol;
+    initialize_solution(&initial_sol);
     clock_t start = clock();
-    heu_cons_ale_gul(initial_sol, 1);
-    initial_sol->objective_function = compute_objective(initial_sol);
+    heu_cons_ale_gul(&initial_sol, 1);
+    initial_sol.objective_function = compute_objective(&initial_sol);
     double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
 
     // Salvar e exibir solução inicial
-    save_solution_details("solucao_inicial.txt", initial_sol);
-    display_solution(initial_sol);
+    save_solution_details("solucao_inicial.txt", &initial_sol);
+    display_solution(&initial_sol);
 
     // Modo iterativo
     double total_time_heuristic = 0, total_time_fo = 0;
@@ -263,39 +252,34 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
 
     clock_t start_heu = clock();
     for(int i = 0; i < iterations; i++) {
-        Solution *temp_sol = create_solution();
-        heu_cons_ale_gul(temp_sol, 1);
-        free(temp_sol);
+        Solution temp_sol;
+        initialize_solution(&temp_sol);
+        heu_cons_ale_gul(&temp_sol, 1);
     }
     total_time_heuristic = (double)(clock() - start_heu) / CLOCKS_PER_SEC;
 
     clock_t start_fo = clock();
     for (int j = 0; j < iterations; j++) {
-        Solution *temp_sol = create_solution();
-        for(int i = 0; i < 1000 ; i++) {
-            heu_cons_ale_gul(temp_sol, 1);
-        }
-        compute_objective(temp_sol);
-        temp = menor_ponto_hub(initial_sol);
+        Solution temp_sol;
+        initialize_solution(&temp_sol);
+        heu_cons_ale_gul(&temp_sol, 1);
+        compute_objective(&temp_sol);
+        temp = menor_ponto_hub(&initial_sol);
         if (maior < temp) {
             maior = temp;
         }
-        free(temp_sol);
     }
     total_time_fo = (double)(clock() - start_fo) / CLOCKS_PER_SEC;
 
-    compute_objective(initial_sol);
-    //calcular_funcao_objetivo(initial_sol);
+    compute_objective(&initial_sol);
     printf("\nDescricao do Computador\t?\t\t(seg.)\t\tFO\t\tTempo (seg.)\t\tTempo Sol. Inicial (seg.)\tTempo Calc. FO (seg.)\n");
     printf("R5 4.4GHz - 16GB ram - Windows 11\t97\t\t%.2lf\t%.5lf\t\t\t%.5lf\t\t\t\t%.5lf\n\n", 
-           initial_sol->objective_function,
+           initial_sol.objective_function,
            time_single,
            total_time_heuristic,
            total_time_fo);
     
     printf("Maior custo encontrado (Funcao Objetivo): %.2lf\n", maior);
-
-    free(initial_sol);
 }
 
 int main(int argc, char *argv[]) {
