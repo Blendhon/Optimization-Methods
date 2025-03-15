@@ -258,9 +258,7 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
     for (int j = 0; j < iterations; j++) {
         Solution temp_sol;
         initialize_solution(&temp_sol);
-        for(int i = 0; i < 1000 ; i++) {
-            heu_cons_ale_gul(&temp_sol, 1);
-        }
+        heu_cons_ale_gul(&temp_sol, 1);
         compute_objective(&temp_sol);
         temp = menor_ponto_hub(&initial_sol);
         if (maior < temp) {
