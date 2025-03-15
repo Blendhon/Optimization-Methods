@@ -248,10 +248,8 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
     // Modo de execução única
     Solution *initial_sol = create_solution();
     clock_t start = clock();
-    for(int i = 0 ; i < 1000; i++) {
-        heu_cons_ale_gul(initial_sol, 1);
-        initial_sol->objective_function = compute_objective(initial_sol);
-    }
+    heu_cons_ale_gul(initial_sol, 1);
+    initial_sol->objective_function = compute_objective(initial_sol);
     double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
 
     // Salvar e exibir solução inicial
