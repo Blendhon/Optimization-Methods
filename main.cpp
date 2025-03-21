@@ -2,11 +2,13 @@
 
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
-int n, p;
+int n;
+int num_hubs;
 double beta = 1.0, alpha = 0.75, lambda = 1.0;
 double distance_matrix[MAX_NODES][MAX_NODES];
-double vetor_hub[MAX_HUBS];
-double vetor_nao_hub[MAX_NODES];
+double matriz_custos[MAX_NODES][MAX_NODES];
+//double vetor_hub[MAX_HUBS];
+//double vetor_nao_hub[MAX_NODES];
 
 // Implementação das funções
 double calculate_distance(Node a, Node b) {
@@ -15,18 +17,20 @@ double calculate_distance(Node a, Node b) {
 
 void calculate_distance_matrix() {
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
+        for (int j = 1; j < n; j++) {
             if (i == j) {
                 distance_matrix[i][j] = 0;
             }
             else {
                 distance_matrix[i][j] = calculate_distance(nodes[i], nodes[j]);
             }
+            printf("%.2lf ", distance_matrix[i][j]);
         }
+        printf("\n");
     }
 }
 
-void read_instance(const char *filename, int hub_count) {
+void read_instance(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo");
@@ -37,13 +41,11 @@ void read_instance(const char *filename, int hub_count) {
         fscanf(file, "%lf %lf", &nodes[i].x, &nodes[i].y);
     }
     fclose(file);
-    p = hub_count;
     calculate_distance_matrix();
 }
 
 void initialize_solution(Solution *sol) {
-    sol->hub_count = p;
-    sol->objective_function = 0;
+    sol->fo = 0;
     memset(sol->hubs, -1, sizeof(sol->hubs));  // Inicializa hubs com valores inválidos
     memset(sol->allocation, -1, sizeof(sol->allocation));  // Inicializa alocações
 }
@@ -51,7 +53,7 @@ void initialize_solution(Solution *sol) {
 void clone_solution(Solution *original, Solution *clone) {
     memcpy(clone->hubs, original->hubs, sizeof(original->hubs));
     memcpy(clone->allocation, original->allocation, sizeof(original->allocation));
-    clone->objective_function = original->objective_function;
+    clone->fo = original->fo;
 }
 
 int read_solution(const char *filename, Solution *sol) {
@@ -62,13 +64,13 @@ int read_solution(const char *filename, Solution *sol) {
     }
 
     // Lê n e p
-    if (fscanf(file, "n: %d\tp: %d\n", &n, &p) != 2) {
+    if (fscanf(file, "n: %d\tp: %d\n", &n, &num_hubs) != 2) {
         fclose(file);
         return 0; // Formato inválido
     }
 
     // Lê a FO
-    if (fscanf(file, "FO: %lf\n", &sol->objective_function) != 1) {
+    if (fscanf(file, "FO: %lf\n", &sol->fo) != 1) {
         fclose(file);
         return 0; // Formato inválido
     }
@@ -77,9 +79,8 @@ int read_solution(const char *filename, Solution *sol) {
     char line[256];
     fgets(line, sizeof(line), file); // Lê a linha "HUBS: [...]"
     char *token = strtok(line, " [],"); // Divide a linha em tokens
-    sol->hub_count = 0;
     while (token != NULL) {
-        sol->hubs[sol->hub_count++] = atoi(token);
+        sol->hubs[num_hubs++] = atoi(token);
         token = strtok(NULL, " [],");
     }
 
@@ -101,7 +102,7 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
     for (int i = 0; i < n; i++) available_hubs[i] = i;
 
     // Seleção de hubs
-    for (int i = 0; i < p; i++) {
+    for (int i = 0; i < num_hubs; i++) {
         int pos = (use_random_seed) ? rand() % (n - i) : 0;
         sol->hubs[i] = available_hubs[pos];
         available_hubs[pos] = available_hubs[n - i - 1];
@@ -110,7 +111,7 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
     // Alocação
     for (int i = 0; i < n; i++) {
         double min_dist = INFINITY;
-        for (int j = 0; j < p; j++) {
+        for (int j = 0; j < num_hubs; j++) {
             double dist = distance_matrix[i][sol->hubs[j]];
             if (dist < min_dist) {
                 min_dist = dist;
@@ -118,6 +119,24 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
             }
         }
     }
+}
+
+double calculo_fo(Solution *sol) {
+/*   sol->fo = 0;
+  for(int i = MAX_HUBS) */
+   double max_cost = 0;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            int k = sol->allocation[i];
+            int l = sol->allocation[j];
+            double cost = beta * distance_matrix[i][k] + 
+                         alpha * distance_matrix[k][l] + 
+                         lambda * distance_matrix[l][j];
+            if (cost > max_cost) max_cost = cost;
+        }
+    }
+    sol->fo = max_cost;
+    return max_cost;
 }
 
 double menor_hub_final(int hub, Solution *sol) {
@@ -140,7 +159,7 @@ double menor_hub_hub(int hub, Solution *sol) {
     double menor_hub_hub = INFINITY;
     int temp = 0, hub_temp = 0;
 
-    for (int i = 0; i < sol->hub_count; i++) {
+    for (int i = 0; i < num_hubs; i++) {
         if (distance_matrix[sol->hubs[i]][sol->hubs[hub]] < menor_hub_hub) {
             if (distance_matrix[sol->hubs[i]][sol->hubs[hub]] != 0) {
                 menor_hub_hub = distance_matrix[i][sol->hubs[hub]];
@@ -158,7 +177,7 @@ double menor_ponto_hub(Solution *sol) {
     int temp1 = 0, temp2 = 0, temp3;
 
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < sol->hub_count; j++) {
+        for (int j = 0; j < num_hubs; j++) {
             if (distance_matrix[i][sol->hubs[j]] < menor_ponto_hub) {
                 if (distance_matrix[i][sol->hubs[j]] != 0) {
                     menor_ponto_hub = distance_matrix[i][sol->hubs[j]];
@@ -174,22 +193,6 @@ double menor_ponto_hub(Solution *sol) {
     return t;
 }
 
-double compute_objective(Solution *sol) {
-    double max_cost = 0;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            int k = sol->allocation[i];
-            int l = sol->allocation[j];
-            double cost = beta * distance_matrix[i][k] + 
-                         alpha * distance_matrix[k][l] + 
-                         lambda * distance_matrix[l][j];
-            if (cost > max_cost) max_cost = cost;
-        }
-    }
-    sol->objective_function = max_cost;
-    return max_cost;
-}
-
 void save_solution_details(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "w");
     if (!file) {
@@ -197,11 +200,11 @@ void save_solution_details(const char *filename, Solution *sol) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(file, "n: %d\tp: %d\n", n, p);
-    fprintf(file, "FO: %.2lf\n", sol->objective_function);
+    fprintf(file, "n: %d\tp: %d\n", n, num_hubs);
+    fprintf(file, "FO: %.2lf\n", sol->fo);
     fprintf(file, "HUBS: [");
-    for (int i = 0; i < p; i++) {
-        fprintf(file, "%d%s", sol->hubs[i], (i < p - 1) ? ", " : "");
+    for (int i = 0; i < num_hubs; i++) {
+        fprintf(file, "%d%s", sol->hubs[i], (i < num_hubs - 1) ? ", " : "");
     }
     fprintf(file, "]\n");
     fprintf(file, "OR\tH1\tH2\tDS\tCUSTO\n");
@@ -220,11 +223,11 @@ void save_solution_details(const char *filename, Solution *sol) {
 
 void display_solution(Solution *sol) {
     printf("\n--- Solucao ---\n");
-    printf("n: %d\tp: %d\n", n, p);
-    printf("FO: %.2lf\n", sol->objective_function);
+    printf("n: %d\tp: %d\n", n, num_hubs);
+    printf("FO: %.2lf\n", sol->fo);
     printf("HUBS: [");
-    for (int i = 0; i < p; i++) {
-        printf("%d%s", sol->hubs[i], (i < p - 1) ? ", " : "");
+    for (int i = 0; i < num_hubs; i++) {
+        printf("%d%s", sol->hubs[i], (i < num_hubs - 1) ? ", " : "");
     }
     printf("]\n");
     printf("OR\tH1\tH2\tDS\tCUSTO\n");
@@ -240,16 +243,16 @@ void display_solution(Solution *sol) {
     }
 }
 
-void run_benchmark(const char *filename, int hub_count, int iterations) {
+void run_benchmark(const char *filename, int iterations) {
     // Configuração inicial
-    read_instance(filename, hub_count);
+    read_instance(filename);
     
     // Modo de execução única
     Solution initial_sol;
     initialize_solution(&initial_sol);
     clock_t start = clock();
     heu_cons_ale_gul(&initial_sol, 1);
-    initial_sol.objective_function = compute_objective(&initial_sol);
+    initial_sol.fo = calculo_fo(&initial_sol);
     double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
 
     // Salvar e exibir solução inicial
@@ -274,7 +277,7 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
         Solution temp_sol;
         initialize_solution(&temp_sol);
         heu_cons_ale_gul(&temp_sol, 1);
-        compute_objective(&temp_sol);
+        calculo_fo(&temp_sol);
         temp = menor_ponto_hub(&initial_sol);
         if (maior < temp) {
             maior = temp;
@@ -282,30 +285,27 @@ void run_benchmark(const char *filename, int hub_count, int iterations) {
     }
     total_time_fo = (double)(clock() - start_fo) / CLOCKS_PER_SEC;
 
-    compute_objective(&initial_sol);
+    calculo_fo(&initial_sol);
     printf("\nDescricao do Computador\t?\t\t(seg.)\t\tFO\t\tTempo (seg.)\t\tTempo Sol. Inicial (seg.)\tTempo Calc. FO (seg.)\n");
     printf("R5 4.4GHz - 16GB ram - Windows 11\t97\t\t%.2lf\t%.5lf\t\t\t%.5lf\t\t\t\t%.5lf\n\n", 
-           initial_sol.objective_function,
+           initial_sol.fo,
            time_single,
            total_time_heuristic,
            total_time_fo);
     
     printf("Maior custo encontrado (Funcao Objetivo): %.2lf\n", maior);
+
 }
 
 int main(int argc, char *argv[]) {
-    // Definir valores padrão
-    const char *default_instance = "inst200.txt";
-    int default_hub_count = 4; // Exemplo de valor padrão para o número de hubs
+    const char *default_instance = "inst5.txt";
+    int default_hub_count = 4;
 
-    // Verificar se os parâmetros foram fornecidos
     const char *instance_file = (argc > 1) ? argv[1] : default_instance;
-    int hub_count = (argc > 2) ? atoi(argv[2]) : default_hub_count;
+    num_hubs = (argc > 2) ? atoi(argv[2]) : default_hub_count;
 
-    // Definir a semente do gerador de números aleatórios
-    srand(time(NULL));
+    //srand(time(NULL));
 
-    // Exemplo de uso do método read_solution
     Solution sol;
     if (read_solution("solucao_salva.txt", &sol)) {
         printf("Solução carregada com sucesso!\n");
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
         printf("Falha ao carregar a solução.\n");
     }
 
-    // Executar o benchmark
-    run_benchmark(instance_file, hub_count, 1000);
+    run_benchmark(instance_file, 1000);
+    
     return EXIT_SUCCESS;
 }
