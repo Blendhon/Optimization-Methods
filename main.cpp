@@ -1,5 +1,21 @@
 #include "hub_problem.h"
 
+#include <pthread.h>
+#include <unistd.h>
+
+const char *default_instance = "inst100.txt";
+int default_hub_count = 50;
+
+volatile int stop = 0;  // Variável compartilhada para sinalizar parada
+
+void* time_limit(void* arg) {
+    int limit = *(int*)arg;
+    sleep(limit);  // Espera pelo tempo limite
+    stop = 1;  // Sinaliza para a thread principal parar
+    printf("Tempo limite atingido! Encerrando execução...\n");
+    pthread_exit(NULL);
+}
+
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
 int num_nos;
@@ -11,47 +27,31 @@ double mat_custo[MAX_NODES][MAX_NODES];
 int melhor_hub[MAX_HUBS];
 double melhor_fo = INFINITY;
 
-// Implementação das funções
 double calculate_distance(Node a, Node b) {
     return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
 }
 
-/*void calculate_distance_matrix() {
-    for (int i = 0; i < num_nos; i++) {
-        for (int j = 1; j < num_nos; j++) {
-            if (i == j) {
-                mat_distancias[i][j] = 0;
-            }
-            else {
-                mat_distancias[i][j] = calculate_distance(nodes[i], nodes[j]);
-            }
-            printf("%.2lf ", mat_distancias[i][j]);
-        }
-        printf("\n");
-    }
-}*/
-
 void calculate_distance_matrix() {
-    FILE *file = fopen("distancias.txt", "w"); // Abre o arquivo para escrita
-    if (!file) {
-        perror("Erro ao abrir o arquivo");
-        exit(EXIT_FAILURE);
-    }
+/*	FILE *file = fopen("distancias.txt", "w");
+	if (!file) {
+	    perror("Erro ao abrir o arquivo");
+	    exit(EXIT_FAILURE);
+	}*/
+	
+	for (int i = 0; i < num_nos; i++) {
+		mat_distancias[i][i] = 0;
+		for (int j = i + 1; j < num_nos; j++) { // Começa de i + 1 para evitar duplicatas
+			double distancia = calculate_distance(nodes[i], nodes[j]);
+			mat_distancias[i][j] = distancia;
+			mat_distancias[j][i] = distancia; // A matriz é simétrica
+			
+			// Escreve no arquivo no formato especificado
+			// fprintf(file, "Ponto %d - Ponto %d -> %.2lf\n", i, j, distancia);
+		}
+	}
 
-    for (int i = 0; i < num_nos; i++) {
-    	mat_distancias[i][i] = 0;
-        for (int j = i + 1; j < num_nos; j++) { // Começa de i + 1 para evitar duplicatas
-            double distancia = calculate_distance(nodes[i], nodes[j]);
-            mat_distancias[i][j] = distancia;
-            mat_distancias[j][i] = distancia; // A matriz é simétrica
-
-            // Escreve no arquivo no formato especificado
-            fprintf(file, "Ponto %d - Ponto %d -> %.2lf\n", i, j, distancia);
-        }
-    }
-
-    fclose(file); // Fecha o arquivo
-    printf("Distancias salvas no arquivo 'distancias.txt'.\n");
+	/*fclose(file);
+	printf("Distancias salvas no arquivo 'distancias.txt'.\n");*/
 }
 
 void read_instance(const char *filename) {
@@ -71,14 +71,10 @@ void read_instance(const char *filename) {
 void initialize_solution(Solution *sol) {
     sol->fo = 0;
     memset(sol->vet_sol, -1, sizeof(sol->vet_sol));  // Inicializa hubs com valores inválidos
-    //memset(sol->hubs, -1, sizeof(sol->hubs));  // Inicializa hubs com valores inválidos
-    //memset(sol->allocation, -1, sizeof(sol->allocation));  // Inicializa alocações
 }
 
 void clone_solution(Solution *original, Solution *clone) {
     memcpy(clone->vet_sol, original->vet_sol, sizeof(original->vet_sol));
-    //memcpy(clone->hubs, original->hubs, sizeof(original->hubs));
-    //memcpy(clone->allocation, original->allocation, sizeof(original->allocation));
     clone->fo = original->fo;
 }
 
@@ -86,7 +82,7 @@ int read_solution(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo de solução");
-        return 0; // Falha ao abrir o arquivo
+        return 0;
     }
 
     // Lê num_nos e p
@@ -123,58 +119,70 @@ int read_solution(const char *filename, Solution *sol) {
     }
 
     fclose(file);
-    return 1; // Sucesso
+    return 1;
 }
 
 void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
-    //int available_hubs[MAX_NODES];
-
     for (int i = 0; i < num_nos; i++) {
         sol->vet_sol[i] = i;
-        //available_hubs[i] = i;  
-        //printf("%d ", available_hubs[i]);
-        //printf("%d ", sol->vet_sol[i]);
     }
-    //printf("\n");
 
+    int center_index = 0;
+    int min_max_dist = 0x7F800000; // Use um valor grande para inicializar
 
-    // Seleção de hubs
-        /* int pos = 3;
-        int temp = sol->vet_sol[0];
-        sol->vet_sol[0] = sol->vet_sol[pos];
-        sol->vet_sol[pos] = temp;
-
-        int pos1 = 5;
-        int temp1 = sol->vet_sol[1];
-        sol->vet_sol[1] = sol->vet_sol[pos1];
-        sol->vet_sol[pos1] = temp1;
-
-        int pos2 = 13;
-        int temp2 = sol->vet_sol[2];
-        sol->vet_sol[2] = sol->vet_sol[pos2];
-        sol->vet_sol[pos2] = temp2;
-
-        int pos3 = 16;
-        int temp3 = sol->vet_sol[3];
-        sol->vet_sol[3] = sol->vet_sol[pos3];
-        sol->vet_sol[pos3] = temp3; */
-
+    for (int i = 0; i < num_nos; i++) {
+        int max_dist = 0;
+    // Encontra a distância máxima do nó i para qualquer outro nó
+        for (int j = 0; j < num_nos; j++) {
+            if (mat_distancias[i][j] > max_dist) {
+                max_dist = mat_distancias[i][j];
+            }
+        }
+    // Atualiza o centro se a distância máxima for menor
+        if (max_dist < min_max_dist) {
+            min_max_dist = max_dist;
+            center_index = i;
+        }
+    }
 
     for (int i = 0; i < num_hubs; i++) {
+        int pos;
+        if (use_random_seed) {
+            // Combinação de estratégia gulosa e aleatória
+            // Seleciona aleatoriamente entre os nós mais distantes do centro
+            int num_candidates = (num_nos - i) / 2; // Ajuste o número de candidatos conforme necessário
+            int farthest_candidate = i;
+            double max_dist = 0.0;
 
-        int pos = (use_random_seed) ? rand() % (num_nos - i) : 0;
+        // Encontra os 'num_candidates' nós mais distantes do centro
+            for (int j = i; j < num_nos; j++) {
+                double dist = mat_distancias[j][center_index]; // Supondo que center_index é o índice do centro
+                if (dist > max_dist) {
+                    max_dist = dist;
+                    farthest_candidate = j;
+                }
+            }
+
+        // Seleciona aleatoriamente entre os candidatos mais distantes
+            pos = i + rand() % num_candidates;
+        } else {
+            // Estratégia puramente gulosa (seleciona o mais distante)
+            pos = i;
+            double max_dist = 0.0;
+            for (int j = i; j < num_nos; j++) {
+                double dist = mat_distancias[j][center_index]; // Supondo que center_index é o índice do centro
+                if (dist > max_dist) {
+                    max_dist = dist;
+                    pos = j;
+                }
+            }
+          }
+
+    // Troca os elementos
         int temp = sol->vet_sol[i];
         sol->vet_sol[i] = sol->vet_sol[pos];
         sol->vet_sol[pos] = temp;
     }
-        //sol->hubs[i] = available_hubs[pos];
-        //available_hubs[pos] = available_hubs[num_nos - i - 1];
-
-    /*for (int i = 0; i < num_nos; i++) {
-        //printf("%d ", available_hubs[i]);
-        printf("%d ", sol->vet_sol[i]);
-    }
-    printf("\n");*/
     
     // Alocação
     /* for (int i = num_hubs; i < num_nos; i++) {
@@ -190,47 +198,15 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
             }
         }
     } */
-	
-	/*{
-		sol->vet_sol[0] = 0;
-		sol->vet_sol[1] = 2;
-		sol->vet_sol[2] = 4;
-		sol->vet_sol[3] = 1;
-		sol->vet_sol[4] = 3;
-	}*/
-	
-	/*{
-		sol->vet_sol[0] = 3;
-		sol->vet_sol[1] = 5;
-		sol->vet_sol[2] = 13;
-		sol->vet_sol[3] = 16;
-		sol->vet_sol[4] = 0;
-		sol->vet_sol[5] = 1;
-		sol->vet_sol[6] = 2;
-		sol->vet_sol[7] = 4;
-		sol->vet_sol[8] = 6;
-		sol->vet_sol[9] = 7;
-		sol->vet_sol[10] = 8;
-		sol->vet_sol[11] = 9;
-		sol->vet_sol[12] = 10;
-		sol->vet_sol[13] = 11;
-		sol->vet_sol[14] = 12;
-		sol->vet_sol[15] = 14;
-		sol->vet_sol[16] = 15;
-		sol->vet_sol[17] = 17;
-		sol->vet_sol[18] = 18;
-		sol->vet_sol[19] = 19;
-	}*/
-	
-	/*printf("Hubs escolhidos: ");
-    for (int i = 0; i < num_nos; i++) {
+
+    /*for (int i = 0; i < num_nos; i++) {
         //printf("%d ", available_hubs[i]);
         printf("%d ", sol->vet_sol[i]);
     }
     printf("\n");*/
 }
 
-void calculo_fo(Solution& s) {
+void calculo_fo(Solution& s, int iterations) {
     s.fo = 0;
 
     // Inicializar os custos entre nós não-hubs (não-hubs x não-hubs)
@@ -244,7 +220,7 @@ void calculo_fo(Solution& s) {
     // Inicializar os custos (hubs x hubs) e (hubs x não-hubs)
     for (int k = 0; k < num_hubs; k++) {
         // Hubs
-        for (int l = k + 1; l < num_hubs; l++) {
+        for (int l = k; l <= num_hubs; l++) {
             mat_custo[s.vet_sol[k]][s.vet_sol[l]] = alfa * mat_distancias[s.vet_sol[k]][s.vet_sol[l]];
             mat_custo[s.vet_sol[l]][s.vet_sol[k]] = alfa * mat_distancias[s.vet_sol[l]][s.vet_sol[k]];
         }
@@ -258,7 +234,7 @@ void calculo_fo(Solution& s) {
     // Atualizar os custos (hubs x não-hubs) passando por 1 hub intermediário
     for (int k = 0; k < num_hubs; k++) {
         for (int i = num_hubs; i < num_nos; i++) {
-            for (int j = 0 + 1; j < num_hubs; j++) {
+            for (int j = 0; j < num_hubs; j++) {
                 mat_custo[s.vet_sol[k]][s.vet_sol[i]] = std::min(mat_custo[s.vet_sol[k]][s.vet_sol[i]],
                 (mat_custo[s.vet_sol[k]][s.vet_sol[j]] + mat_custo[s.vet_sol[j]][s.vet_sol[i]]));
                 mat_custo[s.vet_sol[i]][s.vet_sol[k]] = std::min(mat_custo[s.vet_sol[i]][s.vet_sol[k]],
@@ -287,7 +263,7 @@ void calculo_fo(Solution& s) {
             }
         }
     }
-    
+       
     // Calcular a função objetivo (FO)
     for (int i = 0; i < num_nos; i++) {
         for (int j = i; j < num_nos; j++) {
@@ -297,24 +273,30 @@ void calculo_fo(Solution& s) {
         //printf("\n");
     }
 
+    //printf("Interação: %d > FO Atual: %.2lf -> Nova FO: %.2lf\n", iterations, melhor_fo, s.fo);
+ /*   printf("Hubs escolhidos: ");
+    	for (int i = 0; i < num_nos; i++) {
+    	    printf("%d ", s.vet_sol[i]);
+		}
+    	printf("\n");*/
     
-    if (melhor_fo > s.fo) {
-    
-    	printf("Hubs escolhidos: ");
+    if (melhor_fo >= s.fo) {
+    	melhor_fo = s.fo;
+
+    /*	printf("Hubs escolhidos: ");
     	for (int i = 0; i < num_nos; i++) {
     	    //printf("%d ", available_hubs[i]);
     	    printf("%d ", s.vet_sol[i]);
-    	}
-    	printf("\n");
-    	printf("%.2lf\n", s.fo);
-    
-    	melhor_fo = s.fo;
-	    FILE *file = fopen("mat_custo.txt", "w"); // Abre o arquivo para escrita
+		}
+    	printf("\n");*/
+    	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
+
+	/*    FILE *file = fopen("mat_custo.txt", "w"); // Abre o arquivo para escrita
 	    if (!file) {
 	        perror("Erro ao abrir o arquivo");
 	        exit(EXIT_FAILURE);
 	    }
-	    
+
 	    fprintf(file, "HUBS: [");
 	    for (int i = 0; i < num_hubs; i++) {
 	        fprintf(file, "%d%s", s.vet_sol[i], (i < num_hubs - 1) ? ", " : "");
@@ -329,67 +311,13 @@ void calculo_fo(Solution& s) {
 	    			fprintf(file, "%.2lf\t|\t", mat_custo[i][j]);
 	    		
 			}
-	    	fprintf(file, "\n");
+			fprintf(file, "\n");
 		}
-	    
-	    fprintf(file, "\n%lf", s.fo);
-	    fclose(file); // Fecha o arquivo
+
+		fprintf(file, "\n%lf", s.fo);
+	    fclose(file);*/
 	}
 }
-
-/* double menor_hub_final(int hub, Solution *sol) {
-    double menor_hub_final = INFINITY;
-    int temp = 0;
-
-    for (int i = 0; i < num_nos; i++) {
-        if (mat_distancias[sol->hubs[hub]][i] < menor_hub_final) {
-            if (mat_distancias[sol->hubs[hub]][i] != 0) {
-                menor_hub_final = mat_distancias[i][sol->hubs[hub]];
-                temp = i;
-            }
-        }
-    }
-
-    return menor_hub_final;
-} */
-
-/* double menor_hub_hub(int hub, Solution *sol) {
-    double menor_hub_hub = INFINITY;
-    int temp = 0, hub_temp = 0;
-
-    for (int i = 0; i < num_hubs; i++) {
-        if (mat_distancias[sol->hubs[i]][sol->hubs[hub]] < menor_hub_hub) {
-            if (mat_distancias[sol->hubs[i]][sol->hubs[hub]] != 0) {
-                menor_hub_hub = mat_distancias[i][sol->hubs[hub]];
-                temp = sol->hubs[i];
-                hub_temp = i;
-            }
-        }
-    }
-
-    return menor_hub_hub * 0.75 + menor_hub_final(hub_temp, sol);
-} */
-
-/* double menor_ponto_hub(Solution *sol) {
-    double menor_ponto_hub = INFINITY;
-    int temp1 = 0, temp2 = 0, temp3;
-
-    for (int i = 0; i < num_nos; i++) {
-        for (int j = 0; j < num_hubs; j++) {
-            if (mat_distancias[i][sol->hubs[j]] < menor_ponto_hub) {
-                if (mat_distancias[i][sol->hubs[j]] != 0) {
-                    menor_ponto_hub = mat_distancias[i][sol->hubs[j]];
-                    temp1 = i;
-                    temp2 = sol->hubs[j];
-                    temp3 = j;
-                }
-            }
-        }
-    }
-
-    double t = menor_ponto_hub + menor_hub_hub(temp3, sol);
-    return t;
-} */
 
 void save_solution_details(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "w");
@@ -441,26 +369,28 @@ void display_solution(Solution *sol) {
     }
 }
 
-void run_benchmark(const char *filename, int iterations) {
+void* run_benchmark(void* arg) {
     // Configuração inicial
-    read_instance(filename);
+    read_instance(default_instance);
     
     // Modo de execução única
     Solution initial_sol;
     initialize_solution(&initial_sol);
     //clock_t start = clock();
     
-    for (int i = 0; i < iterations; i++) {
+    int i = 0;
+    while (!stop) {
 	    heu_cons_ale_gul(&initial_sol, 1);
-	 
-	    //initial_sol.fo = calculo_fo(initial_sol);
-	    calculo_fo(initial_sol);
+	    calculo_fo(initial_sol, i + 1);
+	    i++;
 	}
+	printf("Meta-heurística finalizada.\n");
+    pthread_exit(NULL);
 
     //double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
 
     // Salvar e exibir solução inicial
-    save_solution_details("solucao_inicial.txt", &initial_sol);
+    // save_solution_details("solucao_inicial.txt", &initial_sol);
     // display_solution(&initial_sol);
 
     // Modo iterativo
@@ -501,9 +431,9 @@ void run_benchmark(const char *filename, int iterations) {
 
 }
 
+
+
 int main(int argc, char *argv[]) {
-    const char *default_instance = "inst200.txt";
-    int default_hub_count = 50;
 
     const char *instance_file = (argc > 1) ? argv[1] : default_instance;
     num_hubs = (argc > 2) ? atoi(argv[2]) : default_hub_count;
@@ -511,14 +441,33 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     Solution sol;
-    if (read_solution("solucao_salva.txt", &sol)) {
+    /*if (read_solution("solucao_salva.txt", &sol)) {
         printf("Solução carregada com sucesso!\n");
         display_solution(&sol);
     } else {
         printf("Falha ao carregar a solução.\n");
-    }
+    }*/
 	
-	run_benchmark(instance_file, 1000);
+	pthread_t timer_thread, algorithm_thread;
+    int time_limit_sec = 19;  // Defina aqui o tempo limite
+
+    // Criação das threads
+    pthread_create(&timer_thread, NULL, time_limit, &time_limit_sec);
+    pthread_create(&algorithm_thread, NULL, run_benchmark, NULL);
+
+    // Espera pelas threads
+    pthread_join(timer_thread, NULL);
+    pthread_join(algorithm_thread, NULL);
+	
+	/*int i = 0;
+	read_instance(instance_file);
+    Solution initial_sol;
+    initialize_solution(&initial_sol);
+	while (melhor_fo > 38000) {
+	    i++;
+		heu_cons_ale_gul(&initial_sol, 1);
+	    calculo_fo(initial_sol, i);
+	}*/
     
     return EXIT_SUCCESS;
 }
