@@ -319,31 +319,21 @@ void calculo_fo(Solution& s, int iterations) {
 	}
 }
 
-void save_solution_details(const char *filename, Solution *sol) {
+void save_solution_details(const char *filename, Solution &sol) {
     FILE *file = fopen(filename, "w");
     if (!file) {
         perror("Erro ao salvar a solução");
         exit(EXIT_FAILURE);
     }
-
+    
     fprintf(file, "n: %d\tp: %d\n", num_nos, num_hubs);
-    fprintf(file, "FO: %.2lf\n", sol->fo);
+    fprintf(file, "FO: %.2lf\n", sol.fo);
     fprintf(file, "HUBS: [");
     for (int i = 0; i < num_hubs; i++) {
-        fprintf(file, "%d%s", sol->vet_sol[i], (i < num_hubs - 1) ? ", " : "");
+        fprintf(file, "%d%s", sol.vet_sol[i], (i < num_hubs - 1) ? ", " : "");
     }
     fprintf(file, "]\n");
     fprintf(file, "OR\tH1\tH2\tDS\tCUSTO\n");
-    for (int i = 0; i < num_nos; i++) {
-        for (int j = 0; j < num_nos; j++) {
-            int h1 = sol->allocation[i];
-            int h2 = sol->allocation[j];
-            double tij = beta * mat_distancias[i][h1] + 
-                         alfa * mat_distancias[h1][h2] + 
-                         lambda * mat_distancias[h2][j];
-            fprintf(file, "%d\t%d\t%d\t%d\t%.2lf\n", i, h1, h2, j, tij);
-        }
-    }
     fclose(file);
 }
 
@@ -385,12 +375,13 @@ void* run_benchmark(void* arg) {
 	    i++;
 	}
 	printf("Meta-heurística finalizada.\n");
+	// Salvar e exibir solução inicial
+    save_solution_details("solucao_inicial.txt", initial_sol);
     pthread_exit(NULL);
 
     //double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
 
-    // Salvar e exibir solução inicial
-    // save_solution_details("solucao_inicial.txt", &initial_sol);
+    
     // display_solution(&initial_sol);
 
     // Modo iterativo
@@ -449,7 +440,7 @@ int main(int argc, char *argv[]) {
     }*/
 	
 	pthread_t timer_thread, algorithm_thread;
-    int time_limit_sec = 19;  // Defina aqui o tempo limite
+    int time_limit_sec = 5;  // Defina aqui o tempo limite
 
     // Criação das threads
     pthread_create(&timer_thread, NULL, time_limit, &time_limit_sec);
