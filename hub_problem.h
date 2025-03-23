@@ -7,6 +7,7 @@
 #include <math.h>
 #include <time.h>
 #include <float.h> // Para DBL_MAX
+#include <algorithm>
 
 // Constantes
 #define MAX_NODES 200
@@ -41,9 +42,10 @@ void initialize_solution(Solution *sol);
 void clone_solution(Solution *original, Solution *clone);
 int read_solution(const char *filename, Solution *sol);
 void heu_cons_ale_gul(Solution *sol, int use_random_seed);
-double calculo_fo(Solution *sol);
+double calculo_fo(Solution *sol, int iterations);
 void save_solution_details(const char *filename, Solution *sol);
 void display_solution(Solution *sol);
-void run_benchmark(const char *filename, int iterations);
+void* run_benchmark(void* arg);
+void calcular_fo_g(Solution& s);
 
 #endif // HUB_PROBLEM_H
