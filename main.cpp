@@ -1,20 +1,10 @@
 #include "hub_problem.h"
 
-#include <pthread.h>
-#include <unistd.h>
-
-const char *default_instance = "inst100.txt";
-int default_hub_count = 50;
-
-volatile int stop = 0;  // Variável compartilhada para sinalizar parada
-
-void* time_limit(void* arg) {
-    int limit = *(int*)arg;
-    sleep(limit);  // Espera pelo tempo limite
-    stop = 1;  // Sinaliza para a thread principal parar
-    printf("Tempo limite atingido! Encerrando execução...\n");
-    pthread_exit(NULL);
-}
+// Definição Instancias e Numero de HUBs default
+const char *default_instance = "inst5.txt";
+int default_hub_count = 3;
+// Defina aqui o tempo limite
+int time_limit_sec = 5;
 
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
@@ -23,9 +13,17 @@ int num_hubs;
 double beta = 1.0, alfa = 0.75, lambda = 1.0;
 double mat_distancias[MAX_NODES][MAX_NODES];
 double mat_custo[MAX_NODES][MAX_NODES];
-
 int melhor_hub[MAX_HUBS];
 double melhor_fo = INFINITY;
+volatile int stop = 0;
+
+void* time_limit(void* arg) {
+    int limit = *(int*)arg;
+    sleep(limit);  // Espera pelo tempo limite
+    stop = 1;  // Sinaliza para a thread principal parar
+    printf("Tempo limite atingido! Encerrando execução...\n");
+    pthread_exit(NULL);
+}
 
 double calculate_distance(Node a, Node b) {
     return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
@@ -123,88 +121,67 @@ int read_solution(const char *filename, Solution *sol) {
 }
 
 void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
+    // Inicializa a solução com os índices dos nós
     for (int i = 0; i < num_nos; i++) {
         sol->vet_sol[i] = i;
     }
 
+    // Encontra o nó central
     int center_index = 0;
-    int min_max_dist = 0x7F800000; // Use um valor grande para inicializar
+    int min_max_dist = INT_MAX;
 
     for (int i = 0; i < num_nos; i++) {
         int max_dist = 0;
-    // Encontra a distância máxima do nó i para qualquer outro nó
         for (int j = 0; j < num_nos; j++) {
             if (mat_distancias[i][j] > max_dist) {
                 max_dist = mat_distancias[i][j];
             }
         }
-    // Atualiza o centro se a distância máxima for menor
         if (max_dist < min_max_dist) {
             min_max_dist = max_dist;
             center_index = i;
         }
     }
 
+    // Seleciona os hubs
     for (int i = 0; i < num_hubs; i++) {
-        int pos;
-        if (use_random_seed) {
-            // Combinação de estratégia gulosa e aleatória
-            // Seleciona aleatoriamente entre os nós mais distantes do centro
-            int num_candidates = (num_nos - i) / 2; // Ajuste o número de candidatos conforme necessário
-            int farthest_candidate = i;
-            double max_dist = 0.0;
-
-        // Encontra os 'num_candidates' nós mais distantes do centro
-            for (int j = i; j < num_nos; j++) {
-                double dist = mat_distancias[j][center_index]; // Supondo que center_index é o índice do centro
-                if (dist > max_dist) {
-                    max_dist = dist;
-                    farthest_candidate = j;
-                }
-            }
-
-        // Seleciona aleatoriamente entre os candidatos mais distantes
-            pos = i + rand() % num_candidates;
-        } else {
-            // Estratégia puramente gulosa (seleciona o mais distante)
-            pos = i;
-            double max_dist = 0.0;
-            for (int j = i; j < num_nos; j++) {
-                double dist = mat_distancias[j][center_index]; // Supondo que center_index é o índice do centro
-                if (dist > max_dist) {
-                    max_dist = dist;
-                    pos = j;
-                }
-            }
-          }
-
-    // Troca os elementos
-        int temp = sol->vet_sol[i];
-        sol->vet_sol[i] = sol->vet_sol[pos];
-        sol->vet_sol[pos] = temp;
-    }
-    
-    // Alocação
-    /* for (int i = num_hubs; i < num_nos; i++) {
-        double min_dist = INFINITY;
-        for (int j = 0; j < num_hubs; j++) {
-            //double dist = mat_distancias[i][sol->hubs[j]];
-            double dist = mat_distancias[i][sol->vet_sol[j]];
-            if (dist < min_dist) {
-                min_dist = dist;
-                //sol->allocation[i] = sol->hubs[j];
-                sol->vet_sol[i] = sol->vet_sol[j];
-                //sol->allocation[i] = sol->vet_sol[j];
-            }
-        }
-    } */
-
-    /*for (int i = 0; i < num_nos; i++) {
-        //printf("%d ", available_hubs[i]);
-        printf("%d ", sol->vet_sol[i]);
-    }
-    printf("\n");*/
-}
+	    int pos;
+	    if (use_random_seed) {
+	        // Combinação de estratégia gulosa e aleatória
+	        // Considera todos os nós restantes como candidatos
+	        int num_candidates = num_nos - i;
+	        int farthest_candidate = i;
+	        double max_dist = 0.0;
+	
+	        for (int j = i; j < num_nos; j++) {
+	            double dist = mat_distancias[j][center_index];
+	            if (dist > max_dist) {
+	                max_dist = dist;
+	                farthest_candidate = j;
+	            }
+	        }
+	
+	        // Seleciona aleatoriamente entre os candidatos mais distantes
+	        pos = i + rand() % num_candidates;
+	    } else {
+	        // Estratégia puramente gulosa (seleciona o mais distante)
+	        pos = i;
+	        double max_dist = 0.0;
+	        for (int j = i; j < num_nos; j++) {
+	            double dist = mat_distancias[j][center_index];
+	            if (dist > max_dist) {
+	                max_dist = dist;
+	                pos = j;
+	            }
+	        }
+	    }
+	
+	    // Troca os elementos
+	    int temp = sol->vet_sol[i];
+	    sol->vet_sol[i] = sol->vet_sol[pos];
+	    sol->vet_sol[pos] = temp;
+	}
+	}
 
 void calculo_fo(Solution& s, int iterations) {
     s.fo = 0;
@@ -283,12 +260,12 @@ void calculo_fo(Solution& s, int iterations) {
     if (melhor_fo >= s.fo) {
     	melhor_fo = s.fo;
 
-    /*	printf("Hubs escolhidos: ");
+    	printf("Hubs escolhidos: ");
     	for (int i = 0; i < num_nos; i++) {
     	    //printf("%d ", available_hubs[i]);
     	    printf("%d ", s.vet_sol[i]);
 		}
-    	printf("\n");*/
+    	printf("\n");
     	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
 
 	/*    FILE *file = fopen("mat_custo.txt", "w"); // Abre o arquivo para escrita
@@ -440,7 +417,6 @@ int main(int argc, char *argv[]) {
     }*/
 	
 	pthread_t timer_thread, algorithm_thread;
-    int time_limit_sec = 5;  // Defina aqui o tempo limite
 
     // Criação das threads
     pthread_create(&timer_thread, NULL, time_limit, &time_limit_sec);
