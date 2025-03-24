@@ -1,8 +1,8 @@
 #include "hub_problem.h"
 
 // Definição Instancias e Numero de HUBs default
-const char *default_instance = "inst5.txt";
-int default_hub_count = 3;
+const char *default_instance = "inst20.txt";
+int default_hub_count = 4;
 // Defina aqui o tempo limite
 int time_limit_sec = 5;
 
@@ -30,26 +30,14 @@ double calculate_distance(Node a, Node b) {
 }
 
 void calculate_distance_matrix() {
-/*	FILE *file = fopen("distancias.txt", "w");
-	if (!file) {
-	    perror("Erro ao abrir o arquivo");
-	    exit(EXIT_FAILURE);
-	}*/
-	
 	for (int i = 0; i < num_nos; i++) {
 		mat_distancias[i][i] = 0;
 		for (int j = i + 1; j < num_nos; j++) { // Começa de i + 1 para evitar duplicatas
 			double distancia = calculate_distance(nodes[i], nodes[j]);
 			mat_distancias[i][j] = distancia;
 			mat_distancias[j][i] = distancia; // A matriz é simétrica
-			
-			// Escreve no arquivo no formato especificado
-			// fprintf(file, "Ponto %d - Ponto %d -> %.2lf\n", i, j, distancia);
 		}
 	}
-
-	/*fclose(file);
-	printf("Distancias salvas no arquivo 'distancias.txt'.\n");*/
 }
 
 void read_instance(const char *filename) {
@@ -180,8 +168,8 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
 	    int temp = sol->vet_sol[i];
 	    sol->vet_sol[i] = sol->vet_sol[pos];
 	    sol->vet_sol[pos] = temp;
-	}
-	}
+	}	
+}
 
 void calculo_fo(Solution& s, int iterations) {
     s.fo = 0;
@@ -224,12 +212,12 @@ void calculo_fo(Solution& s, int iterations) {
     for (int i = num_hubs; i < num_nos; i++) {
         for (int j = i; j < num_nos; j++) {
             for (int k = 0; k < num_hubs; k++) {
-              mat_custo[s.vet_sol[i]][s.vet_sol[j]] = std::min(mat_custo[s.vet_sol[i]][s.vet_sol[j]],
-                  mat_custo[s.vet_sol[i]][s.vet_sol[k]] + mat_custo[s.vet_sol[k]][s.vet_sol[j]]);
+                mat_custo[s.vet_sol[i]][s.vet_sol[j]] = std::min(mat_custo[s.vet_sol[i]][s.vet_sol[j]],
+                    mat_custo[s.vet_sol[i]][s.vet_sol[k]] + mat_custo[s.vet_sol[k]][s.vet_sol[j]]);
 
-              mat_custo[s.vet_sol[j]][s.vet_sol[i]] = std::min(mat_custo[s.vet_sol[j]][s.vet_sol[i]],
-                  mat_custo[s.vet_sol[j]][s.vet_sol[k]] + mat_custo[s.vet_sol[k]][s.vet_sol[i]]);
-              
+                mat_custo[s.vet_sol[j]][s.vet_sol[i]] = std::min(mat_custo[s.vet_sol[j]][s.vet_sol[i]],
+                    mat_custo[s.vet_sol[j]][s.vet_sol[k]] + mat_custo[s.vet_sol[k]][s.vet_sol[i]]);
+
                 for (int l = 0; l < num_hubs; l++) {
                     mat_custo[s.vet_sol[i]][s.vet_sol[j]] = std::min(mat_custo[s.vet_sol[i]][s.vet_sol[j]],
                          mat_custo[s.vet_sol[i]][s.vet_sol[k]] + mat_custo[s.vet_sol[k]][s.vet_sol[l]] + mat_custo[s.vet_sol[l]][s.vet_sol[j]]);
@@ -240,77 +228,46 @@ void calculo_fo(Solution& s, int iterations) {
             }
         }
     }
-       
+
     // Calcular a função objetivo (FO)
     for (int i = 0; i < num_nos; i++) {
         for (int j = i; j < num_nos; j++) {
             s.fo = std::max(s.fo, mat_custo[s.vet_sol[i]][s.vet_sol[j]]);
-            //printf("%.2lf ", mat_custo[s.vet_sol[i]][s.vet_sol[j]]);
         }
-        //printf("\n");
     }
 
-    //printf("Interação: %d > FO Atual: %.2lf -> Nova FO: %.2lf\n", iterations, melhor_fo, s.fo);
- /*   printf("Hubs escolhidos: ");
-    	for (int i = 0; i < num_nos; i++) {
-    	    printf("%d ", s.vet_sol[i]);
-		}
-    	printf("\n");*/
-    
-    if (melhor_fo >= s.fo) {
-    	melhor_fo = s.fo;
+    // Atualizar a melhor FO, se necessário
+    if (melhor_fo > s.fo) {
+        melhor_fo = s.fo;
 
-    	printf("Hubs escolhidos: ");
+		printf("Hubs escolhidos: ");
     	for (int i = 0; i < num_nos; i++) {
-    	    //printf("%d ", available_hubs[i]);
     	    printf("%d ", s.vet_sol[i]);
 		}
     	printf("\n");
     	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
 
-	/*    FILE *file = fopen("mat_custo.txt", "w"); // Abre o arquivo para escrita
-	    if (!file) {
-	        perror("Erro ao abrir o arquivo");
-	        exit(EXIT_FAILURE);
-	    }
-
-	    fprintf(file, "HUBS: [");
-	    for (int i = 0; i < num_hubs; i++) {
-	        fprintf(file, "%d%s", s.vet_sol[i], (i < num_hubs - 1) ? ", " : "");
-	    }
-	    fprintf(file, "]\n\n");
-	    
-	    for (int i = 0; i < num_nos; i++) {
-	    	for (int j = 0; j < num_nos; j++) {
-	    		if (mat_custo[i][j] < 10000)
-	    			fprintf(file, "%.2lf\t\t|\t", mat_custo[i][j]);
-	    		else
-	    			fprintf(file, "%.2lf\t|\t", mat_custo[i][j]);
-	    		
-			}
-			fprintf(file, "\n");
-		}
-
-		fprintf(file, "\n%lf", s.fo);
-	    fclose(file);*/
-	}
+        save_solution_details(s);
+    }
 }
 
-void save_solution_details(const char *filename, Solution &sol) {
-    FILE *file = fopen(filename, "w");
+void save_solution_details(Solution &s) {
+    FILE *file = fopen("resultados.txt", "w");
     if (!file) {
         perror("Erro ao salvar a solução");
         exit(EXIT_FAILURE);
     }
     
+    // Escreve o cabeçalho
     fprintf(file, "n: %d\tp: %d\n", num_nos, num_hubs);
-    fprintf(file, "FO: %.2lf\n", sol.fo);
+    fprintf(file, "FO: %.2lf\n", s.fo);
     fprintf(file, "HUBS: [");
     for (int i = 0; i < num_hubs; i++) {
-        fprintf(file, "%d%s", sol.vet_sol[i], (i < num_hubs - 1) ? ", " : "");
+        fprintf(file, "%d%s", s.vet_sol[i], (i < num_hubs - 1) ? ", " : "");
     }
     fprintf(file, "]\n");
     fprintf(file, "OR\tH1\tH2\tDS\tCUSTO\n");
+
     fclose(file);
 }
 
@@ -353,7 +310,7 @@ void* run_benchmark(void* arg) {
 	}
 	printf("Meta-heurística finalizada.\n");
 	// Salvar e exibir solução inicial
-    save_solution_details("solucao_inicial.txt", initial_sol);
+    // save_solution_details("solucao_inicial.txt", initial_sol);
     pthread_exit(NULL);
 
     //double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
@@ -399,8 +356,6 @@ void* run_benchmark(void* arg) {
 
 }
 
-
-
 int main(int argc, char *argv[]) {
 
     const char *instance_file = (argc > 1) ? argv[1] : default_instance;
@@ -409,7 +364,7 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     Solution sol;
-    /*if (read_solution("solucao_salva.txt", &sol)) {
+   /* if (read_solution("solucao_salva.txt", &sol)) {
         printf("Solução carregada com sucesso!\n");
         display_solution(&sol);
     } else {
@@ -425,16 +380,6 @@ int main(int argc, char *argv[]) {
     // Espera pelas threads
     pthread_join(timer_thread, NULL);
     pthread_join(algorithm_thread, NULL);
-	
-	/*int i = 0;
-	read_instance(instance_file);
-    Solution initial_sol;
-    initialize_solution(&initial_sol);
-	while (melhor_fo > 38000) {
-	    i++;
-		heu_cons_ale_gul(&initial_sol, 1);
-	    calculo_fo(initial_sol, i);
-	}*/
-    
+	  
     return EXIT_SUCCESS;
 }
