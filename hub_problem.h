@@ -8,6 +8,9 @@
 #include <time.h>
 #include <float.h> // Para DBL_MAX
 #include <algorithm>
+#include <pthread.h>
+#include <unistd.h>
+#include <limits.h>
 
 // Constantes
 #define MAX_NODES 200
@@ -27,12 +30,15 @@ typedef struct {
 } Solution;
 
 // Variáveis globais
+extern int time_limit_sec;
 extern Node nodes[MAX_NODES];
-extern int n;
-extern double beta, alpha, lambda;
-extern double distance_matrix[MAX_NODES][MAX_NODES];
-//extern double vetor_hub[MAX_HUBS];
-//extern double vetor_nao_hub[MAX_NODES];
+extern int num_nos;
+extern int num_hubs;
+extern double beta, alfa, lambda;
+extern double mat_distancias[MAX_NODES][MAX_NODES];
+extern double mat_custo[MAX_NODES][MAX_NODES];
+extern int melhor_hub[MAX_HUBS];
+extern double melhor_fo;
 
 // Protótipos das funções
 double calculate_distance(Node a, Node b);
@@ -42,10 +48,10 @@ void initialize_solution(Solution *sol);
 void clone_solution(Solution *original, Solution *clone);
 int read_solution(const char *filename, Solution *sol);
 void heu_cons_ale_gul(Solution *sol, int use_random_seed);
-double calculo_fo(Solution *sol, int iterations);
-void save_solution_details(const char *filename, Solution *sol);
+void calculo_fo(Solution &sol, int iterations);
+void save_solution_details(const char *filename, Solution &sol);
 void display_solution(Solution *sol);
 void* run_benchmark(void* arg);
-void calcular_fo_g(Solution& s);
+void* time_limit(void* arg);
 
 #endif // HUB_PROBLEM_H
