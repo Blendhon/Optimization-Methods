@@ -15,7 +15,7 @@
 // Constantes
 #define MAX_NODES 200
 #define MAX_HUBS 50
-#define INFINITY DBL_MAX
+// #define INFINITY DBL_MAX
 
 // Estruturas
 typedef struct node {
@@ -51,7 +51,7 @@ int read_solution(const char *filename, Solution *sol);
 void heu_cons_ale_gul(Solution *sol, int use_random_seed);
 void calculo_fo(Solution &sol, int iterations);
 void save_solution_details(Solution &sol);
-void display_solution(Solution *sol);
+void display_solution(const char *filename, Solution *sol);
 void* run_benchmark(void* arg);
 void* time_limit(void* arg);
 
