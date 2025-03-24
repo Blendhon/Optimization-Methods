@@ -6,7 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include <float.h> // Para DBL_MAX
+#include <float.h>
 #include <algorithm>
 #include <pthread.h>
 #include <unistd.h>
@@ -15,7 +15,6 @@
 // Constantes
 #define MAX_NODES 200
 #define MAX_HUBS 50
-// #define INFINITY DBL_MAX
 
 // Estruturas
 typedef struct node {
@@ -40,6 +39,8 @@ extern double mat_custo[MAX_NODES][MAX_NODES];
 extern int melhor_hub[MAX_HUBS];
 extern double melhor_fo;
 int vet_bin[MAX_NODES];
+clock_t start;
+double melhor_tempo;
 
 // Protótipos das funções
 double calculate_distance(Node a, Node b);
