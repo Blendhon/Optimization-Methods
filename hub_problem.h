@@ -28,6 +28,22 @@ typedef struct solution {
     int allocation[MAX_NODES];
 } Solution;
 
+// Estrutura para candidatos (usada na busca local)
+typedef struct candidate{
+    int index;
+    double dist;
+} Candidate;
+
+// Protótipos das funções de busca local
+void local_search(Solution *sol);
+int swap_search(Solution *sol);
+int insertion_search(Solution *sol);
+int replacement_search(Solution *sol);
+
+// Funções auxiliares
+int compare_candidates(const void *a, const void *b);
+void swap_elements(int *a, int *b);
+
 // Variáveis globais
 extern int time_limit_sec;
 extern Node nodes[MAX_NODES];
@@ -50,7 +66,7 @@ void initialize_solution(Solution *sol);
 void clone_solution(Solution *original, Solution *clone);
 int read_solution(const char *filename, Solution *sol);
 void heu_cons_ale_gul(Solution *sol, int use_random_seed);
-void calculo_fo(Solution &sol, int iterations);
+void calculo_fo(Solution &sol);
 void save_solution_details(Solution &sol);
 void display_solution(const char *filename, Solution *sol);
 void* run_benchmark(void* arg);
