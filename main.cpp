@@ -4,7 +4,7 @@
 const char *default_instance = "inst20.txt";
 int default_hub_count = 4;
 // Defina aqui o tempo limite
-int time_limit_sec = 5;
+int time_limit_sec = 15;
 
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
