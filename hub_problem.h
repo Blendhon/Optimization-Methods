@@ -18,11 +18,11 @@
 #define INFINITY DBL_MAX
 
 // Estruturas
-typedef struct {
+typedef struct node {
     double x, y;
 } Node;
 
-typedef struct {
+typedef struct solution {
     int hubs[MAX_HUBS];
     int vet_sol[MAX_NODES];
     double fo;
@@ -49,7 +49,7 @@ void clone_solution(Solution *original, Solution *clone);
 int read_solution(const char *filename, Solution *sol);
 void heu_cons_ale_gul(Solution *sol, int use_random_seed);
 void calculo_fo(Solution &sol, int iterations);
-void save_solution_details(const char *filename, Solution &sol);
+void save_solution_details(Solution &sol);
 void display_solution(Solution *sol);
 void* run_benchmark(void* arg);
 void* time_limit(void* arg);
