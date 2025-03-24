@@ -1,10 +1,10 @@
 #include "hub_problem.h"
 
 // Definição Instancias e Numero de HUBs default
-const char *default_instance = "inst20.txt";
-int default_hub_count = 4;
-// Defina aqui o tempo limite
-int time_limit_sec = 15;
+const char *default_instance = "inst5.txt";
+int default_hub_count = 3;
+// Defina aqui o tempo limite do GRASP
+int grasp_time_limit_sec = 6;
 
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
@@ -16,6 +16,8 @@ double mat_custo[MAX_NODES][MAX_NODES];
 int melhor_hub[MAX_HUBS];
 double melhor_fo = INFINITY;
 volatile int stop = 0;
+// Tempo limite do código
+int time_limit_sec = 360;
 
 void* time_limit(void* arg) {
     int limit = *(int*)arg;
@@ -68,44 +70,68 @@ int read_solution(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo de solução");
+        return 0;  // Retorna 0 se houver erro ao abrir o arquivo
+    }
+
+    // Lê o número de nós e hubs
+    if (fscanf(file, "n: %d\tp: %d\n", &num_nos, &num_hubs) != 2) {
+        printf("Erro ao ler número de nós e hubs.\n");
+        fclose(file);
         return 0;
     }
 
-    // Lê num_nos e p
-    if (fscanf(file, "num_nos: %d\tp: %d\n", &num_nos, &num_hubs) != 2) {
-        fclose(file);
-        return 0; // Formato inválido
-    }
-
-    // Lê a FO
+    // Lê o valor da função objetivo (FO)
     if (fscanf(file, "FO: %lf\n", &sol->fo) != 1) {
+        printf("Erro ao ler o valor da função objetivo.\n");
         fclose(file);
-        return 0; // Formato inválido
+        return 0;
     }
 
     // Lê os hubs
-    char line[256];
-    fgets(line, sizeof(line), file); // Lê a linha "HUBS: [...]"
-    char *token = strtok(line, " [],"); // Divide a linha em tokens
-    while (token != NULL) {
-        for(int i = 0; i < num_hubs; i++) {
-            sol->vet_sol[i] = atoi(token); // Testar
-        }
-        //sol->hubs[num_hubs++] = atoi(token);
-        token = strtok(NULL, " [],");
+    if (fscanf(file, "HUBS: [") == EOF) {
+        printf("Erro ao ler a lista de hubs.\n");
+        fclose(file);
+        return 0;
     }
 
-    // Lê as alocações (OR, H1, H2, DS, CUSTO)
-    while (fgets(line, sizeof(line), file)) {
-        int ori, h1, h2, ds;
-        double custo;
-        if (sscanf(line, "%d\t%d\t%d\t%d\t%lf", &ori, &h1, &h2, &ds, &custo) == 5) {
-            sol->allocation[ori] = h1; // Assumindo que H1 é o hub alocado para o nó OR
+    for (int i = 0; i < num_hubs; i++) {
+        if (fscanf(file, "%d", &sol->vet_sol[i]) != 1) {
+            printf("Erro ao ler os hubs na posição %d.\n", i);
+            fclose(file);
+            return 0;
         }
+        // Ignora vírgula ou fecha colchetes na última iteração
+        if (i < num_hubs - 1) fgetc(file);  // Pula a vírgula
+    }
+
+    // Pula o fechamento do colchete e a nova linha
+    if (fgetc(file) != ']') {
+        printf("Erro ao fechar o colchete dos hubs.\n");
+        fclose(file);
+        return 0;
+    }
+    fgetc(file);
+    fclose(file);
+    return 1;
+}
+
+void display_solution(const char *filename, Solution *sol) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Erro ao abrir o arquivo de solução");
+        return;
+    }
+
+    char line[256]; // Buffer para ler linhas do arquivo
+
+    // Lê e exibe linha por linha
+    while (fgets(line, sizeof(line), file)) {
+        // Remove o caractere de nova linha se existir
+        line[strcspn(line, "\n")] = '\0';
+        printf("%s\n", line);
     }
 
     fclose(file);
-    return 1;
 }
 
 void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
@@ -240,34 +266,36 @@ void calculo_fo(Solution& s, int iterations) {
     if (melhor_fo > s.fo) {
         melhor_fo = s.fo;
 
-		printf("Hubs escolhidos: ");
-    	for (int i = 0; i < num_nos; i++) {
-    	    printf("%d ", s.vet_sol[i]);
+		int i = 0;
+		printf("Hubs escolhidos: [");
+    	for (i = 0; i < num_hubs - 1; i++) {
+    	    printf("%d, ", s.vet_sol[i]);
 		}
-    	printf("\n");
-    	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
+    	printf("%d]", s.vet_sol[i]);
     	
-		for (int i = 0; i < num_nos; i++) {
+    	for (int i = 0; i < num_nos; i++) {
 			vet_bin[i] = 0;
 			for (int j = 0; j < num_hubs; j++)
 				if ( i == s.vet_sol[j] )
 					vet_bin[i] = 1;
 		}
 		
-		/*for (int i = 0; i < num_nos; i++) {
-			printf("%d ", vet_bin[i]);
-		}
-		printf("\n");*/
-
+    	/*printf(" -> ")
+		for (int j = 0; j < num_nos; j++) {
+			printf("%d ", vet_bin[j]);
+		}*/
+		
+		printf("\n");
+		
+    	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
+    	
         save_solution_details(s);
-    }    
+    }
 }
 
 void save_solution_details(Solution &s) {
 	double Tij, Tjk = 0.75, Tkl;
 	double valor;
-	
-
 	
     FILE *file = fopen("resultados.txt", "w");
     if (!file) {
@@ -307,28 +335,6 @@ void save_solution_details(Solution &s) {
     fclose(file);
 }
 
-void display_solution(Solution *sol) {
-    printf("\n--- Solucao ---\n");
-    printf("n: %d\tp: %d\n", num_nos, num_hubs);
-    printf("FO: %.2lf\n", sol->fo);
-    printf("HUBS: [");
-    for (int i = 0; i < num_hubs; i++) {
-        printf("%d%s", sol->vet_sol[i], (i < num_hubs - 1) ? ", " : "");
-    }
-    printf("]\n");
-    printf("OR\tH1\tH2\tDS\tCUSTO\n");
-    for (int i = 0; i < num_nos; i++) {
-        for (int j = 0; j < 5; j++) {
-            int h1 = sol->allocation[i];
-            int h2 = sol->allocation[j];
-            double tij = beta * mat_distancias[i][h1] + 
-                         alfa * mat_distancias[h1][h2] + 
-                         lambda * mat_distancias[h2][j];
-            printf("%d\t%d\t%d\t%d\t%.2lf\n", i, h1, h2, j, tij);
-        }
-    }
-}
-
 void* run_benchmark(void* arg) {
     // Configuração inicial
     read_instance(default_instance);
@@ -336,76 +342,40 @@ void* run_benchmark(void* arg) {
     // Modo de execução única
     Solution initial_sol;
     initialize_solution(&initial_sol);
-    //clock_t start = clock();
     
     int i = 0;
+	clock_t start = clock();
     while (!stop) {
 	    heu_cons_ale_gul(&initial_sol, 1);
+	    if ( ((double)(clock() - start) / CLOCKS_PER_SEC) >= grasp_time_limit_sec)
+	    	goto label;
 	    calculo_fo(initial_sol, i + 1);
 	    i++;
 	}
-	printf("Meta-heurística finalizada.\n");
-	// Salvar e exibir solução inicial
-    // save_solution_details("solucao_inicial.txt", initial_sol);
+	
+	printf("Tempo limite atingido.\n");
     pthread_exit(NULL);
-
-    //double time_single = (double)(clock() - start) / CLOCKS_PER_SEC;
-
     
-    // display_solution(&initial_sol);
-
-    // Modo iterativo
-    /* double total_time_heuristic = 0, total_time_fo = 0;
-    double maior = 0;
-    double temp = 0;
-
-    clock_t start_heu = clock();
-    for(int i = 0; i < iterations; i++) {
-        Solution temp_sol;
-        initialize_solution(&temp_sol);
-        heu_cons_ale_gul(&temp_sol, 1);
-    }
-    total_time_heuristic = (double)(clock() - start_heu) / CLOCKS_PER_SEC;
-
-    clock_t start_fo = clock();
-    for (int j = 0; j < iterations; j++) {
-        Solution temp_sol;
-        initialize_solution(&temp_sol);
-        heu_cons_ale_gul(&temp_sol, 1);
-        calculo_fo(&temp_sol);
-        temp = menor_ponto_hub(&initial_sol);
-        if (maior < temp) {
-            maior = temp;
-        }
-    }
-    total_time_fo = (double)(clock() - start_fo) / CLOCKS_PER_SEC;
-
-    calculo_fo(&initial_sol);
-    printf("\nDescricao do Computador\t?\t\t(seg.)\t\tFO\t\tTempo (seg.)\t\tTempo Sol. Inicial (seg.)\tTempo Calc. FO (seg.)\n");
-    printf("R5 4.4GHz - 16GB ram - Windows 11\t97\t\t%.2lf\t%.5lf\t\t\t%.5lf\t\t\t\t%.5lf\n\n", 
-           initial_sol.fo,
-           time_single,
-           total_time_heuristic,
-           total_time_fo);
-    
-    printf("Maior custo encontrado (Funcao Objetivo): %.2lf\n", maior); */
-
+    label:
+    printf("Meta-heurística finalizada.\n");
+	exit(1);
 }
 
 int main(int argc, char *argv[]) {
-
     const char *instance_file = (argc > 1) ? argv[1] : default_instance;
     num_hubs = (argc > 2) ? atoi(argv[2]) : default_hub_count;
 
     srand(time(NULL));
 
     Solution sol;
-   /* if (read_solution("solucao_salva.txt", &sol)) {
+    
+	/*if (read_solution("resultados.txt", &sol)) {
         printf("Solução carregada com sucesso!\n");
-        display_solution(&sol);
     } else {
         printf("Falha ao carregar a solução.\n");
     }*/
+    
+    // display_solution("resultados.txt", &sol);
 	
 	pthread_t timer_thread, algorithm_thread;
 
