@@ -1,8 +1,8 @@
 #include "hub_problem.h"
 
 // Definição Instancias e Numero de HUBs default
-const char *default_instance = "inst5.txt";
-int default_hub_count = 3;
+const char *default_instance = "inst20.txt";
+int default_hub_count = 4;
 // Defina aqui o tempo limite do GRASP
 int grasp_time_limit_sec = 6;
 
@@ -265,6 +265,7 @@ void calculo_fo(Solution& s, int iterations) {
     // Atualizar a melhor FO, se necessário
     if (melhor_fo > s.fo) {
         melhor_fo = s.fo;
+        melhor_tempo = ((double)(clock() - start) / CLOCKS_PER_SEC);
 
 		int i = 0;
 		printf("Hubs escolhidos: [");
@@ -287,9 +288,9 @@ void calculo_fo(Solution& s, int iterations) {
 		
 		printf("\n");
 		
-    	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
+    	printf("N_Int: %d -> FO: %.2lf\nTempo: %.5lf\n", iterations, s.fo, melhor_tempo);
     	
-        save_solution_details(s);
+        save_solution_details(s);  	
     }
 }
 
@@ -343,8 +344,10 @@ void* run_benchmark(void* arg) {
     Solution initial_sol;
     initialize_solution(&initial_sol);
     
+    srand(time(NULL));
+    
     int i = 0;
-	clock_t start = clock();
+	start = clock();
     while (!stop) {
 	    heu_cons_ale_gul(&initial_sol, 1);
 	    if ( ((double)(clock() - start) / CLOCKS_PER_SEC) >= grasp_time_limit_sec)
@@ -357,6 +360,15 @@ void* run_benchmark(void* arg) {
     pthread_exit(NULL);
     
     label:
+	FILE *file = fopen("tempos.txt", "a");
+	if (!file) {
+	    perror("Erro ao abrir tempos.txt");
+	    exit(EXIT_FAILURE);
+	}
+	
+	fprintf(file, "inst%d.txt | p = %d -> FO: %.2lf -> Tempo(seg): %.2lf\n", 
+	        num_nos, num_hubs, melhor_fo, melhor_tempo);
+	fclose(file);
     printf("Meta-heurística finalizada.\n");
 	exit(1);
 }
@@ -364,8 +376,6 @@ void* run_benchmark(void* arg) {
 int main(int argc, char *argv[]) {
     const char *instance_file = (argc > 1) ? argv[1] : default_instance;
     num_hubs = (argc > 2) ? atoi(argv[2]) : default_hub_count;
-
-    srand(time(NULL));
 
     Solution sol;
     
