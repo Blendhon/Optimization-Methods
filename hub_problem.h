@@ -39,7 +39,7 @@ extern double mat_distancias[MAX_NODES][MAX_NODES];
 extern double mat_custo[MAX_NODES][MAX_NODES];
 extern int melhor_hub[MAX_HUBS];
 extern double melhor_fo;
-aint vet_bin[MAX_NODES];
+int vet_bin[MAX_NODES];
 
 // Protótipos das funções
 double calculate_distance(Node a, Node b);
