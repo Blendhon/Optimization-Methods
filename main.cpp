@@ -1,10 +1,10 @@
 #include "hub_problem.h"
 
 // Definição Instancias e Numero de HUBs default
-const char *default_instance = "inst50.txt";
-int default_hub_count = 10;
+const char *default_instance = "inst20.txt";
+int default_hub_count = 4;
 // Defina aqui o tempo limite
-int time_limit_sec = 290;
+int time_limit_sec = 5;
 
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
@@ -246,12 +246,29 @@ void calculo_fo(Solution& s, int iterations) {
 		}
     	printf("\n");
     	printf("N_Int: %d -> FO: %.2lf\n", iterations, s.fo);
+    	
+		for (int i = 0; i < num_nos; i++) {
+			vet_bin[i] = 0;
+			for (int j = 0; j < num_hubs; j++)
+				if ( i == s.vet_sol[j] )
+					vet_bin[i] = 1;
+		}
+		
+		/*for (int i = 0; i < num_nos; i++) {
+			printf("%d ", vet_bin[i]);
+		}
+		printf("\n");*/
 
         save_solution_details(s);
     }    
 }
 
 void save_solution_details(Solution &s) {
+	double Tij, Tjk = 0.75, Tkl;
+	double valor;
+	
+
+	
     FILE *file = fopen("resultados.txt", "w");
     if (!file) {
         perror("Erro ao salvar a solução");
@@ -268,50 +285,25 @@ void save_solution_details(Solution &s) {
     fprintf(file, "]\n");
     fprintf(file, "OR\tH1\tH2\tDS\tCUSTO\n");
     
-    for ( int ori = 0; ori < num_hubs; ori++ ) {
-    	for ( int h1 = 0; h1 < num_hubs; h1++ ) {
-    		for ( int h2 = 0; h2 < num_hubs; h2++ ) {
-    			for ( int des = 0; des < num_hubs; des++ ) {
-    				if ( ori == h1 && h1 == h2 && h2 == des);
-					else if ( ori == des && h1 == h2 )
-						fprintf(file, "%d\t%d\t%d\t%d\t%.2lf\n",
-							s.vet_sol[ori], s.vet_sol[h1], s.vet_sol[h2], s.vet_sol[des],
-							alfa*mat_distancias[s.vet_sol[ori]][s.vet_sol[h1]]);
+	for ( int i = 0; i < num_nos; i++ ) {
+		for ( int j = 0; j < num_nos; j++ ) {
+			if ( vet_bin[j] == 0 ) {continue;}
+			else if ( vet_bin[i] == 0 ) {Tij = 1;}
+			else {Tij = 0.75;}
+			for ( int k = 0; k < num_nos; k++ ) {
+				if (vet_bin[k] == 0) {continue;}
+				for ( int l = 0; l < num_nos; l++ ) {
+					if (vet_bin[l] == 0) {Tkl = 1;}
+					else {Tkl = 0.75;}
+					valor = mat_distancias[i][j]*Tij + mat_distancias[j][k]*Tjk + mat_distancias[k][l]*Tkl;
+					if ( valor == 0 ) {continue;}
+					else if ( mat_custo[i][l] + 1 >= valor && valor >= mat_custo[i][l] - 1 )
+						fprintf(file, "%d\t%d\t%d\t%d\t%.2lf\n", i, j, k, l, valor);
 				}
 			}
 		}
 	}
-    
-    for ( int ori = num_hubs; ori < num_nos; ori++ ) {
-    	for ( int h1 = 0; h1 < num_hubs; h1++ ) {
-    		for ( int h2 = 0; h2 < num_hubs; h2++ ) {
-    			for ( int des = num_hubs; des < num_nos; des++ ) {
-    				if ( mat_custo[ori][des] + 5 >= beta*mat_distancias[s.vet_sol[ori]][s.vet_sol[h1]] +
-							alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]] +
-							lambda*mat_distancias[s.vet_sol[h2]][s.vet_sol[des]] || beta*mat_distancias[s.vet_sol[ori]][s.vet_sol[h1]] +
-							alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]] +
-							lambda*mat_distancias[s.vet_sol[h2]][s.vet_sol[des]] < s.fo + 5 )
-	    				fprintf(file, "%d\t%d\t%d\t%d\t%.2lf\n",
-							s.vet_sol[ori], s.vet_sol[h1], s.vet_sol[h2], s.vet_sol[des],
-							beta*mat_distancias[s.vet_sol[ori]][s.vet_sol[h1]] +
-							alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]] +
-							lambda*mat_distancias[s.vet_sol[h2]][s.vet_sol[des]]);
-					else if ( mat_custo[ori][des] + 5 >= beta*mat_distancias[s.vet_sol[ori]][s.vet_sol[h1]] +
-							alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]] )
-	    				fprintf(file, "%d\t%d\t%d\t%d\t%.2lf\n",
-							s.vet_sol[ori], s.vet_sol[h1], s.vet_sol[h2], s.vet_sol[des],
-							beta*mat_distancias[s.vet_sol[ori]][s.vet_sol[h1]] +
-							alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]]);
-					else if ( mat_custo[ori][des] + 5 >= alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]] +
-							lambda*mat_distancias[s.vet_sol[h2]][s.vet_sol[des]] )
-	    				fprintf(file, "%d\t%d\t%d\t%d\t%.2lf\n",
-							s.vet_sol[ori], s.vet_sol[h1], s.vet_sol[h2], s.vet_sol[des],
-							alfa*mat_distancias[s.vet_sol[h1]][s.vet_sol[h2]] +
-							lambda*mat_distancias[s.vet_sol[h2]][s.vet_sol[des]]);
-				}
-			}
-		}
-	}
+	
     fclose(file);
 }
 
