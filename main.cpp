@@ -2,7 +2,7 @@
 
 // Definições e parâmetros GRASP
 const char *default_instance = "inst200.txt";
-int default_hub_count = 10;
+int default_hub_count = 50;
 int grasp_time_limit_sec = 300;
 double grasp_alpha = 0.64; // (0 = guloso puro, 1 = aleatório puro)
 
@@ -147,7 +147,7 @@ int swap_search(Solution *sol) {
             swap_elements(&sol->vet_sol[i], &sol->vet_sol[j]);
             
             // Calcula novo custo
-            calculo_fo(*sol); // Passamos 0 pois não queremos imprimir
+            calculo_fo(*sol);
             
             // Verifica melhora
             if (sol->fo < best_cost) {
@@ -303,7 +303,7 @@ int read_solution(const char *filename, Solution *sol) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo de solução");
-        return 0;  // Retorna 0 se houver erro ao abrir o arquivo
+        return 0;
     }
 
     // Lê o número de nós e hubs
@@ -365,69 +365,6 @@ void display_solution(const char *filename, Solution *sol) {
     }
 
     fclose(file);
-}
-
-void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
-    // Inicializa a solução com os índices dos nós
-    for (int i = 0; i < num_nos; i++) {
-        sol->vet_sol[i] = i;
-    }
-
-    // Encontra o nó central
-    int center_index = 0;
-    int min_max_dist = INT_MAX;
-
-    for (int i = 0; i < num_nos; i++) {
-        int max_dist = 0;
-        for (int j = 0; j < num_nos; j++) {
-            if (mat_distancias[i][j] > max_dist) {
-                max_dist = mat_distancias[i][j];
-            }
-        }
-        if (max_dist < min_max_dist) {
-            min_max_dist = max_dist;
-            center_index = i;
-        }
-    }
-
-    // Seleciona os hubs
-    for (int i = 0; i < num_hubs; i++) {
-	    int pos;
-	    if (use_random_seed) {
-	        // Combinação de estratégia gulosa e aleatória
-	        // Considera todos os nós restantes como candidatos
-	        int num_candidates = num_nos - i;
-	        int farthest_candidate = i;
-	        double max_dist = 0.0;
-	
-	        for (int j = i; j < num_nos; j++) {
-	            double dist = mat_distancias[j][center_index];
-	            if (dist > max_dist) {
-	                max_dist = dist;
-	                farthest_candidate = j;
-	            }
-	        }
-	
-	        // Seleciona aleatoriamente entre os candidatos mais distantes
-	        pos = i + rand() % num_candidates;
-	    } else {
-	        // Estratégia puramente gulosa (seleciona o mais distante)
-	        pos = i;
-	        double max_dist = 0.0;
-	        for (int j = i; j < num_nos; j++) {
-	            double dist = mat_distancias[j][center_index];
-	            if (dist > max_dist) {
-	                max_dist = dist;
-	                pos = j;
-	            }
-	        }
-	    }
-	
-	    // Troca os elementos
-	    int temp = sol->vet_sol[i];
-	    sol->vet_sol[i] = sol->vet_sol[pos];
-	    sol->vet_sol[pos] = temp;
-	}	
 }
 
 void calculo_fo(Solution& s) {
@@ -518,11 +455,6 @@ void calculo_fo(Solution& s) {
 				if ( i == s.vet_sol[j] )
 					vet_bin[i] = 1;
 		}
-		
-    	/*printf(" -> ")
-		for (int j = 0; j < num_nos; j++) {
-			printf("%d ", vet_bin[j]);
-		}*/
 		
 		printf("\n");
 		
