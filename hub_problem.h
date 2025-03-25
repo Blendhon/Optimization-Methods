@@ -34,6 +34,10 @@ typedef struct candidate{
     double dist;
 } Candidate;
 
+// Grasp
+void build_rcl(Candidate candidates[], int num_candidates, Candidate rcl[], int *rcl_size, double max_dist, double min_dist);
+void heu_cons_grasp(Solution *sol);
+
 // Protótipos das funções de busca local
 void local_search(Solution *sol);
 int swap_search(Solution *sol);
@@ -65,7 +69,6 @@ void read_instance(const char *filename);
 void initialize_solution(Solution *sol);
 void clone_solution(Solution *original, Solution *clone);
 int read_solution(const char *filename, Solution *sol);
-void heu_cons_ale_gul(Solution *sol, int use_random_seed);
 void calculo_fo(Solution &sol);
 void save_solution_details(Solution &sol);
 void display_solution(const char *filename, Solution *sol);
