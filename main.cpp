@@ -1,10 +1,10 @@
 #include "hub_problem.h"
 
-// Definição Instancias e Numero de HUBs default
+// Definições e parâmetros GRASP
 const char *default_instance = "inst200.txt";
-int default_hub_count = 3;
-// Defina aqui o tempo limite do GRASP
-int grasp_time_limit_sec = 60;
+int default_hub_count = 10;
+int grasp_time_limit_sec = 300;
+double grasp_alpha = 0.64; // (0 = guloso puro, 1 = aleatório puro)
 
 // Definição das variáveis globais
 Node nodes[MAX_NODES];
@@ -18,6 +18,80 @@ double melhor_fo = INFINITY;
 volatile int stop = 0;
 // Tempo limite do código
 int time_limit_sec = 330;
+
+// Função para construir a Lista Restrita de Candidatos (RCL)
+void build_rcl(Candidate candidates[], int num_candidates, Candidate rcl[], int *rcl_size, double max_dist, double min_dist) {
+    *rcl_size = 0;
+    double threshold = min_dist + grasp_alpha * (max_dist - min_dist);
+    
+    for (int i = 0; i < num_candidates; i++) {
+        if (candidates[i].dist >= threshold) {
+            rcl[*rcl_size] = candidates[i];
+            (*rcl_size)++;
+        }
+    }
+}
+
+// Função modificada de construção de solução com GRASP
+void heu_cons_grasp(Solution *sol) {
+    // Inicializa a solução com os índices dos nós
+    for (int i = 0; i < num_nos; i++) {
+        sol->vet_sol[i] = i;
+    }
+
+    // 1. Encontra o nó central (como antes)
+    int center_index = 0;
+    int min_max_dist = INT_MAX;
+    for (int i = 0; i < num_nos; i++) {
+        int max_dist = 0;
+        for (int j = 0; j < num_nos; j++) {
+            if (mat_distancias[i][j] > max_dist) {
+                max_dist = mat_distancias[i][j];
+            }
+        }
+        if (max_dist < min_max_dist) {
+            min_max_dist = max_dist;
+            center_index = i;
+        }
+    }
+
+    // 2. Para cada posição de hub, seleciona usando GRASP
+    for (int i = 0; i < num_hubs; i++) {
+        // Cria lista de candidatos (nós não selecionados)
+        Candidate candidates[MAX_NODES];
+        int num_candidates = 0;
+        
+        // Preenche candidatos com nós não selecionados e suas distâncias ao centro
+        for (int j = i; j < num_nos; j++) {
+            candidates[num_candidates].index = j;
+            candidates[num_candidates].dist = mat_distancias[sol->vet_sol[j]][center_index];
+            num_candidates++;
+        }
+        
+        // Ordena candidatos por distância (decrescente)
+        qsort(candidates, num_candidates, sizeof(Candidate), compare_candidates);
+        
+        // Calcula distâncias máxima e mínima para construção da RCL
+        double max_dist = candidates[0].dist;
+        double min_dist = candidates[num_candidates-1].dist;
+        
+        // Constroi a Lista Restrita de Candidatos (RCL)
+        Candidate rcl[MAX_NODES];
+        int rcl_size;
+        build_rcl(candidates, num_candidates, rcl, &rcl_size, max_dist, min_dist);
+        
+        // Seleciona aleatoriamente da RCL
+        if (rcl_size > 0) {
+            int selected = rand() % rcl_size;
+            int pos = rcl[selected].index;
+            
+            // Troca os elementos
+            int temp = sol->vet_sol[i];
+            sol->vet_sol[i] = sol->vet_sol[pos];
+            sol->vet_sol[pos] = temp;
+        }
+    }
+}
 
 // Função de comparação para candidatos
 int compare_candidates(const void *a, const void *b) {
@@ -358,7 +432,7 @@ void heu_cons_ale_gul(Solution *sol, int use_random_seed) {
 
 void calculo_fo(Solution& s) {
 	
-	if (((double)(clock() - start) / CLOCKS_PER_SEC) >= grasp_time_limit_sec - 1) {
+	if (((double)(clock() - start) / CLOCKS_PER_SEC) >= grasp_time_limit_sec - 0.5) {
         goto label;
 	}
 	
@@ -468,7 +542,7 @@ void calculo_fo(Solution& s) {
 	        exit(EXIT_FAILURE);
 	    }
 	    
-	    fprintf(file, "inst%d.txt | p = %d -> FO: %.2lf -> Tempo(seg): %.2lf\n", 
+	    fprintf(file, "inst%d.txt | p = %d -> FO: %.2lf -> Tempo(seg): %.5lf\n", 
 	            num_nos, num_hubs, melhor_fo, melhor_tempo);
 	    fclose(file);
 	    printf("Meta-heurística finalizada em %.5lfseg\n", time);
@@ -523,18 +597,28 @@ void* run_benchmark(void* arg) {
     Solution initial_sol;
     initialize_solution(&initial_sol);
     
+    Solution melhor_sol;
+    initialize_solution(&melhor_sol);
+    
+    melhor_sol.fo = 0x7fffffff;
+    
     srand(time(NULL));
     
     start = clock();
     while (!stop) {
-        // Fase de construção
-        heu_cons_ale_gul(&initial_sol, 1);
+        // Fase de construção GRASP
+        heu_cons_grasp(&initial_sol);
         
-        // Fase de busca local
+        // Fase de busca local (mantida como antes)
         local_search(&initial_sol);
-               
+                      
         // Avaliação da solução
         calculo_fo(initial_sol);
+        
+        // Garante que a melhor FO saia do minimo local
+        if ( initial_sol.fo < melhor_sol.fo ) {
+        	clone_solution(&initial_sol, &melhor_sol);
+		}
     }
     
     printf("Tempo limite atingido.\n");
